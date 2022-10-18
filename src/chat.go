@@ -9,11 +9,13 @@ import (
 func handle_client_as_server(client net.Conn) {
 }
 
-func server_mode(server_mode_confirmed chan bool, client_mode_confirmed chan bool, client_accepted chan net.Conn, server net.Listener) {
+func wait_in_server_mode(server_mode_confirmed chan bool, client_mode_confirmed chan bool, client_accepted chan net.Conn, server net.Listener) {
 	for {
-		log.Println("Waiting for a connection")
 		conn, err := server.Accept()
 		if err != nil {
+			// if the server throw an error, it might be because of the connection being closed because the user
+			// wants to go in client mode, so we need to check if client_mode_confirmed has been set to true
+			// or if it is just a normal socket error
 			switch {
 			case <-client_mode_confirmed:
 				return
@@ -26,6 +28,14 @@ func server_mode(server_mode_confirmed chan bool, client_mode_confirmed chan boo
 		server_mode_confirmed <- true
 		client_accepted <- conn
 	}
+}
+
+func wait_in_client_mode(client_mode_confirmed chan bool, client_string chan string) {
+	var input string
+	fmt.Print("Who to connect to (host:port) ? ")
+	fmt.Scan(&input)
+	client_string <- input
+	client_mode_confirmed <- true
 }
 
 func main() {
@@ -47,21 +57,15 @@ func main() {
 
 	// for the client
 	client_mode_confirmed := make(chan bool)
+	client_string := make(chan string)
 
-	go server_mode(server_mode_confirmed, client_mode_confirmed, client_accepted, server)
-	go func() {
-		var input string
-		fmt.Println("What to do ?")
-		fmt.Scan(&input)
-		client_mode_confirmed <- true
-	}()
+	go wait_in_server_mode(server_mode_confirmed, client_mode_confirmed, client_accepted, server)
+	go wait_in_client_mode(client_mode_confirmed, client_string)
 
 	select {
 	case <-server_mode_confirmed:
-		log.Println("Got server mode")
 		handle_client_as_server(<-client_accepted)
 	case <-client_mode_confirmed:
-		log.Println("Got client mode")
 		server.Close()
 	}
 }
