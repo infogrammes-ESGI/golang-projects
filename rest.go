@@ -17,6 +17,7 @@ type Park struct {
 var parks []Park
 
 func parks_search_from_name(name string) (park *Park, index int) {
+	// return the instance from the list of parks by searching by its name
 	if len(parks) == 0 {
 		return nil, -1
 	}
@@ -29,6 +30,7 @@ func parks_search_from_name(name string) (park *Park, index int) {
 }
 
 func parks_search_from_id(id int64) (park *Park, index int) {
+	// return the instance from the list of parks by searching by its id
 	if len(parks) == 0 {
 		return nil, -1
 	}
@@ -73,25 +75,28 @@ func parks_remove_from_index(index uint) error {
 }
 
 func send_bad_req(reason string, w http.ResponseWriter) {
-	log.Print(reason)
+	log.Print("Bad request from user: " + reason)
 	w.WriteHeader(http.StatusBadRequest)
 	// return empty response
 	w.Write([]byte("{\"error\": \"" + reason + "\"}"))
 }
 
 func send_not_found(w http.ResponseWriter) {
+	// send a 404
 	w.WriteHeader(http.StatusNotFound)
 	// return empty response
 	w.Write([]byte("{}"))
 }
 
 func send_ok(w http.ResponseWriter) {
+	// just send a 200 OK
 	w.WriteHeader(http.StatusOK)
 	// return empty response
 	w.Write([]byte("{}"))
 }
 
 func send_park(park *Park, w http.ResponseWriter) {
+	// send a park instance to the client
 	w.WriteHeader(http.StatusFound)
 	json_encoder := json.NewEncoder(w)
 	json_encoder.Encode(park)
@@ -102,6 +107,7 @@ func parse_request_json(w http.ResponseWriter, r *http.Request) (*Park, error) {
 	// set default id to an invalid one
 	search.Id = -1
 
+	// decode json body
 	json_decoder := json.NewDecoder(r.Body)
 	json_decoder.DisallowUnknownFields()
 
@@ -109,7 +115,7 @@ func parse_request_json(w http.ResponseWriter, r *http.Request) (*Park, error) {
 
 	if err != nil {
 		// could not understand the request's body
-		return nil, errors.New("JSON error")
+		return nil, err
 	}
 
 	return &search, nil
@@ -179,13 +185,14 @@ func handle_post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, index := parks_search_from_id(search.Id)
+	_, index := parks_search_from_id(search.Id)
 
-	if res == nil {
+	if index == -1 {
 		// value does not exist
 		send_not_found(w)
 	} else {
-		// value exists, updating it
+		// value exists, updating it, note that some parts might have bee ommited in the input,
+		// so we are updating only things that was specified
 		if search.Name != "" {
 			parks[index].Name = search.Name
 		}
@@ -200,6 +207,7 @@ func handle_post(w http.ResponseWriter, r *http.Request) {
 }
 
 func handle_delete(w http.ResponseWriter, r *http.Request) {
+	// delete a park from its id
 	log.Print("Got a DELETE request from ", r.RemoteAddr)
 
 	search, err := parse_request_json(w, r)
@@ -209,30 +217,24 @@ func handle_delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if search.Id < -1 {
+	if search.Id <= -1 {
 		// invalid id to search
 		send_bad_req("'id' cannot be negative", w)
 		return
 	}
 
 	var index int
-	if search.Id != -1 && search.Name == "" {
-		// delete by Id
-		_, index = parks_search_from_id(search.Id)
-	} else if search.Id == -1 && search.Name != "" {
-		// delete by Name
-		_, index = parks_search_from_name(search.Name)
-	} else {
-		send_bad_req("Cannot filter with 'id' and 'name' at the same time", w)
-		return
-	}
+	_, index = parks_search_from_id(search.Id)
+
 	if index == -1 {
 		// value not found
 		send_not_found(w)
 		return
 	}
+
 	err = parks_remove_from_index(uint(index))
 	if err != nil {
+		// an error occured while removing
 		send_not_found(w)
 		return
 	}
@@ -240,6 +242,7 @@ func handle_delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func handle_put(w http.ResponseWriter, r *http.Request) {
+	// create a new park
 	log.Print("Got a PUT request from ", r.RemoteAddr)
 
 	search, err := parse_request_json(w, r)
@@ -250,15 +253,18 @@ func handle_put(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if search.Name == "" || search.InPark == "" || search.Manufacturer == "" {
+		// if missing some elements
 		send_bad_req("'name', 'inPark' and 'manufacturer' have to be set when PUTing a new element.", w)
 		return
 	}
+	// generate a new id and append to the list of parks
 	search.Id = parks_get_next_id()
 	parks = append(parks, *search)
 	send_park(search, w)
 }
 
 func handle_requests(w http.ResponseWriter, r *http.Request) {
+	// this function will call the corresponding function for the http method used
 	switch r.Method {
 	case http.MethodGet:
 		handle_get(w, r)
@@ -269,7 +275,7 @@ func handle_requests(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		handle_put(w, r)
 	default:
-		// send a bad request as this server is RESTful
+		// other http method than RESTful one
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
 		// send empty response
@@ -278,9 +284,8 @@ func handle_requests(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// intialize list of parks
 	parks = make([]Park, 0, 5)
-
-	parks = append(parks, Park{Id: 0, Name: "grand splash", InPark: "Miami", Manufacturer: "Vortex"})
 
 	http.HandleFunc("/endpoint", handle_requests)
 	log.Print("Serving on port 8080")
