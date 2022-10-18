@@ -6,24 +6,26 @@ import (
 	"net"
 )
 
+func handle_client_as_server(client net.Conn) {
+}
+
 func server_mode(server_mode_confirmed chan bool, client_mode_confirmed chan bool, client_accepted chan net.Conn, server net.Listener) {
 	for {
 		log.Println("Waiting for a connection")
 		conn, err := server.Accept()
-		if <-client_mode_confirmed {
-			return
-		}
 		if err != nil {
-			log.Println("Could not accept from "+conn.RemoteAddr().String(), err)
-			continue
+			switch {
+			case <-client_mode_confirmed:
+				return
+			default:
+				log.Println("Could not accept from "+conn.RemoteAddr().String(), err)
+				continue
+			}
 		}
 		log.Println("Accepted from " + conn.RemoteAddr().String())
 		server_mode_confirmed <- true
 		client_accepted <- conn
 	}
-}
-
-func handle_client_as_server(client net.Conn) {
 }
 
 func main() {
@@ -38,11 +40,13 @@ func main() {
 	}
 	log.Println("Listening on port 7777")
 
+	// for the server
 	server_mode_confirmed := make(chan bool)
-	client_mode_confirmed := make(chan bool)
-
 	// used when in server mode to send to the main part the client object
 	client_accepted := make(chan net.Conn)
+
+	// for the client
+	client_mode_confirmed := make(chan bool)
 
 	go server_mode(server_mode_confirmed, client_mode_confirmed, client_accepted, server)
 	go func() {
