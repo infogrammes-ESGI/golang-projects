@@ -13,7 +13,6 @@ La fonction shell est ici pour faire du reverse shell, le parametre de la foncti
 */
 func shell(host string) {
 
-	//stdin := os.Stdin
 	stderr := os.Stderr
 	stdout := os.Stdout
 
