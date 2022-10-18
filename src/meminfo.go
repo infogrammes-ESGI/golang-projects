@@ -17,6 +17,7 @@ func main() {
 	read_mem_info()
 	fmt.Println()
 	fmt.Println("Here are your CPU informations :")
+	fmt.Println("ID User Nice System Idle IOWait IRQ SoftIRQ Steal Guest GuestNice")
 	get_cpu_stat()
 }
 
