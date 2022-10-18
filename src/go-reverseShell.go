@@ -22,7 +22,7 @@ func shell(host string) {
 			conn.Close() // ferme la connexion si err == nil et que la connexion est initialisee, permet de fermer proprement
 		}
 		for i := 1; i <= 5; i++ { // la boucle ici pernet de relancer une connexion si cela echoue 5 tentatives avant de fermer la connexion
-			fmt.Fprintf(stderr, "ERREUR - Connexion a l'hote impossible\n")
+			fmt.Fprintf(stderr, "ERREUR - Connexion a l'hote impossible\nPour essayer en local : nc -nlvp 7777\n")
 			time.Sleep(5 * time.Second)
 			shell(host)
 		}
