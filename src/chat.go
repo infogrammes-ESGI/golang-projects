@@ -8,6 +8,7 @@ import (
 
 func handle_client_logic(client net.Conn) {
 	defer client.Close()
+	fmt.Println("coucou")
 }
 
 func connect_as_client(client_string string) net.Conn {
@@ -45,8 +46,8 @@ func wait_in_client_mode(client_mode_confirmed chan bool, client_string chan str
 	var input string
 	fmt.Print("Who to connect to (host:port) ? ")
 	fmt.Scan(&input)
-	client_string <- input
 	client_mode_confirmed <- true
+	client_string <- input
 }
 
 func main() {
