@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -286,7 +287,10 @@ func handle_requests(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// intialize list of parks
 	parks = make([]Park, 0, 5)
-
+	fmt.Println("Welcome to your Rest API\nTo add a new data, you can try : curl -X PUT 127.0.0.1:8080/endpoint --data '{\"name\":\"Labyrinthe\", \"inPark\":\"Paris\", \"manufacturer\":\"Vortex\"}'")
+	fmt.Println("To retrieve a data : curl -X GET 127.0.0.1:8080/endpoint --data '{\"id\":1}'; you can get with id or name ")
+	fmt.Println("To modify a data :curl -X POST 127.0.0.1:8080/endpoint --data '{\"id\":1, \"inPark\":\"NewYork\"}'")
+	fmt.Println("To delete a data : curl -X DELETE 127.0.0.1:8080/endpoint --data '{\"id\":1}'")
 	http.HandleFunc("/endpoint", handle_requests)
 	log.Print("Serving on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
