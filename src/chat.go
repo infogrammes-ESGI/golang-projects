@@ -1,14 +1,86 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"os"
 )
 
-func handle_client_logic(client net.Conn) {
+const SERVER_LISTEN = 7777
+
+func read_all_from(client net.Conn) (string, error) {
+	var res string = ""
+
+	for {
+		buf := make([]byte, 1024)
+		n, err := client.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
+		}
+		res += string(buf)
+		if n < 1024 {
+			// if we have read everything we could, meaning there is nothing left
+			break
+		}
+	}
+	return res, nil
+}
+
+func send_and_get_usernames(client net.Conn, username string) string {
+	_, err := client.Write([]byte(username))
+	if err != nil {
+		client.Close()
+		log.Panic("Error while sending username: " + err.Error())
+	}
+
+	res, err := read_all_from(client)
+	if err != nil {
+		client.Close()
+		log.Panic("Empty username from peer")
+	}
+	return res
+}
+
+func handle_client_logic(client net.Conn, username string) {
 	defer client.Close()
-	fmt.Println("coucou")
+
+	var peer_username string = send_and_get_usernames(client, username)
+	fmt.Println("Speaking with " + peer_username + " at " + client.RemoteAddr().String())
+
+	go func() {
+		// async read from connection
+		for {
+			from_peer, err := read_all_from(client)
+			if err != nil {
+				fmt.Println(err.Error())
+				break
+			}
+			fmt.Println(peer_username + "> " + from_peer)
+		}
+	}()
+
+	// async write from connection
+	scanner := bufio.NewScanner(os.Stdin)
+	var to_peer string
+	for {
+		fmt.Print(username + "> ")
+		scanner.Scan()
+		to_peer = scanner.Text()
+
+		n, err := client.Write([]byte(to_peer))
+		if err != nil || n == 0 {
+			if err != nil {
+				fmt.Printf("Write error: " + err.Error())
+			}
+			break
+		}
+	}
 }
 
 func connect_as_client(client_string string) net.Conn {
@@ -55,12 +127,12 @@ func main() {
 	fmt.Print("Username: ")
 	fmt.Scan(&username)
 
-	var server, err = net.Listen("tcp", ":7777")
+	var server, err = net.Listen("tcp", fmt.Sprintf(":%d", SERVER_LISTEN))
 
 	if err != nil {
-		log.Panic("Could not open port 7777 to listen")
+		log.Panic(fmt.Sprintf("Could not open port %d to listen", SERVER_LISTEN))
 	}
-	log.Println("Listening on port 7777")
+	log.Println(fmt.Sprintf("Listening on port %d", SERVER_LISTEN))
 
 	// for the server
 	server_mode_confirmed := make(chan bool)
@@ -77,9 +149,9 @@ func main() {
 
 	select {
 	case <-server_mode_confirmed:
-		handle_client_logic(<-client_accepted)
+		handle_client_logic(<-client_accepted, username)
 	case <-client_mode_confirmed:
 		server.Close()
-		handle_client_logic(connect_as_client(<-client_string))
+		handle_client_logic(connect_as_client(<-client_string), username)
 	}
 }
