@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const SERVER_LISTEN = 7777
+const SERVER_LISTEN = 7778
 
 func read_all_from(client net.Conn) (string, error) {
 	var res string = ""
@@ -72,6 +72,10 @@ func handle_client_logic(client net.Conn, username string) {
 		fmt.Print(username + "> ")
 		scanner.Scan()
 		to_peer = scanner.Text()
+		if len(to_peer) == 0 {
+			// cannot send empty messages
+			continue
+		}
 
 		n, err := client.Write([]byte(to_peer))
 		if err != nil || n == 0 {
